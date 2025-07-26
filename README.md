@@ -14,12 +14,6 @@ This project turns your laptop’s camera into **four simultaneous scanning term
 - **Custom scan profiles**: QR, EAN‑13, Code 128, Data Matrix.
 - **Resizable scan area**: Drag & resize the red overlay to focus.
 - **Live log**: Timestamped history of every scan, with CSV export.
-- **Analytics dashboard**:  
-  - **Scans per terminal** bar chart (D3.js)  
-  - **Success vs. failure** pie chart  
-  - PDF export of the dashboard (html2pdf.js)
-- **Show/hide dashboard** toggle in settings.
-- **Dark/light theming** and gear‑menu configuration.
 
 ---
 
