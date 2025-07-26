@@ -22,6 +22,9 @@ This project turns your laptop’s camera into **four simultaneous scanning term
 If you want to try it right now, open the `index.html` in any modern browser over HTTPS or `localhost`.  
 Make sure to allow camera access when prompted.
 
+## Note:
+Make sure to generate the QR code as the terminal name as the validation of the qr code will be as the name of the terminal or a prefix code ending with.
+
 ---
 
 👤 Author
