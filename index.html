@@ -1,464 +1,476 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>UAEU QR Scanner Pro</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>QR Scanner Pro</title>
 
-  <!-- D3.js for charts -->
-  <script src="https://d3js.org/d3.v7.min.js"></script>
-  <!-- html2pdf for PDF export -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
+    <style>
+        html, body {
+            margin: 0;
+            height: 100%;
+        }
 
-  <style>
-    html, body { margin: 0; height: 100%; }
-    body {
-      display: grid;
-      grid-template-rows:
-        auto    /* header */
-        40vh    /* camera grid */
-        auto    /* manual bar */
-        1fr     /* log */
-        1fr     /* dashboard */;
-      overflow: hidden;
-      font-family: sans-serif;
-    }
-    h1 {
-      margin: 0; padding: 12px;
-      background: #333; color: #fff;
-      position: relative; text-align: center;
-    }
-    /* gear icon + tooltip */
-    #configToggle {
-      position: absolute; top: 12px; right: 12px;
-      background: transparent; border: none;
-      font-size: 24px; color: #fff; cursor: pointer;
-    }
-    #configToggle::after {
-      content: attr(data-tooltip);
-      position: absolute; top: -32px; right: 0;
-      background: rgba(0,0,0,0.8); color: #fff;
-      padding: 4px 8px; border-radius: 4px;
-      font-size: 0.85rem; white-space: nowrap;
-      opacity: 0; pointer-events: none;
-      transition: opacity .2s;
-    }
-    #configToggle:hover::after,
-    #configToggle:focus::after { opacity: 1; }
+        body {
+            display: grid;
+            grid-template-rows: auto /* header */
+            40vh /* camera grid */
+            auto /* manual bar */
+            1fr /* log */
+            ;
+            overflow: hidden;
+            font-family: sans-serif;
+            background: #fafafa;
+            color: #333;
+        }
 
-    #configPanel {
-      display: none; position: absolute;
-      top: 48px; right: 12px;
-      background: #fff; padding: 12px;
-      border-radius: 4px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-      font-size: 0.9rem; z-index: 10;
-    }
-    #configPanel label { display: block; margin-bottom: 8px; color: gray; }
+        /* Header */
+        h1 {
+            margin: 0;
+            padding: 12px;
+            background: #333;
+            color: #fff;
+            position: relative;
+            text-align: center;
+        }
 
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px,1fr));
-      gap: 12px; padding: 12px;
-      overflow-y: auto; background: #fafafa;
-    }
-    .terminalBox {
-      display: flex; flex-direction: column;
-      border: 3px solid #ccc; border-radius: 8px;
-      background: #000; cursor: pointer;
-      position: relative; transition: border-color .2s, box-shadow .2s;
-    }
-    .terminalBox[aria-selected="true"] {
-      border-color: #ff8a00;
-      animation: neon 1.5s ease-in-out infinite alternate;
-    }
-    @keyframes neon {
-      from { box-shadow: 0 0 4px rgba(255,138,0,0.8); }
-      to   { box-shadow: 0 0 12px rgba(255,138,0,0.8); }
-    }
-    .terminalTitle {
-      background: #222; color: #fff; padding: 6px;
-      text-align: center;
-    }
-    .videoContainer {
-      position: relative; flex: 1; background: #000;
-      overflow: hidden;
-    }
-    .videoContainer video {
-      width: 100%; height: 100%; object-fit: cover;
-    }
-    .spinner {
-      position: absolute; top: 50%; left: 50%;
-      width: 32px; height: 32px;
-      border: 4px solid rgba(255,255,255,0.3);
-      border-top: 4px solid #fff;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      transform: translate(-50%,-50%);
-      z-index: 2;
-    }
-    @keyframes spin { to { transform: translate(-50%,-50%) rotate(360deg); } }
-    .spinner.hide { display: none; }
+        #configToggle {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: transparent;
+            border: none;
+            font-size: 24px;
+            color: #fff;
+            cursor: pointer;
+        }
 
-    .scanArea {
-      position: absolute; top:20%; left:20%;
-      width:60%; height:60%;
-      border: 2px dashed red;
-      resize: both; overflow: auto;
-      cursor: move; z-index: 3;
-    }
-    .scanLine {
-      display: none; position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 2px;
-      background: rgba(255,0,0,0.7);
-      animation: scanAnim 2s linear infinite;
-    }
-    .videoContainer.scanning .scanLine { display: block; }
-    @keyframes scanAnim { from{top:0} to{top:calc(100% - 2px);} }
+            #configToggle::after {
+                content: attr(data-tooltip);
+                position: absolute;
+                top: -32px;
+                right: 0;
+                background: rgba(0,0,0,0.8);
+                color: #fff;
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 0.85rem;
+                white-space: nowrap;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity .2s;
+            }
 
-    .feedback {
-      position: absolute; top:50%; left:50%;
-      transform: translate(-50%,-50%) scale(0);
-      font-size: 4vw; transition: transform .2s;
-      pointer-events: none; z-index: 4;
-    }
-    .feedback.show { transform: translate(-50%,-50%) scale(1); }
-    .feedback.success { color: #4caf50; }
-    .feedback.error   { color: #f44336; }
+            #configToggle:hover::after {
+                opacity: 1;
+            }
 
-    .manualContainer {
-      padding: 8px; text-align: center;
-      background: #fafafa; border-top: 1px solid #ddd;
-    }
-    #manualInput { width: 200px; padding: 6px; margin-right: 6px; }
-    #profileSelect { margin-left: 12px; }
+        /* Settings panel */
+        #configPanel {
+            display: none;
+            position: absolute;
+            top: 48px;
+            right: 12px;
+            background: #fff;
+            padding: 12px;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            font-size: 0.9rem;
+            color: #333;
+            z-index: 10;
+        }
 
-    #logContainer, #dashboard {
-      overflow-y: auto; padding: 12px;
-      background: #fff; border-top: 1px solid #ddd;
-    }
-    #logTable {
-      width:100%; border-collapse:collapse; margin-bottom:8px;
-    }
-    #logTable th,#logTable td {
-      border:1px solid #ccc; padding:4px; text-align:left;
-    }
-    #exportBtn, #exportPDF {
-      margin:6px; padding:6px 12px; cursor:pointer;
-    }
-    #charts {
-      display:flex; flex-wrap:wrap; gap:24px;
-    }
-    .chart { flex:1; min-width:200px; }
-    .chart svg { width:100%; height:200px; }
-  </style>
+            #configPanel label {
+                display: block;
+                margin-bottom: 8px;
+            }
+
+        /* Camera grid */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px,1fr));
+            gap: 12px;
+            padding: 12px;
+            background: #fff;
+            overflow-y: auto;
+        }
+
+        .terminalBox {
+            display: flex;
+            flex-direction: column;
+            border: 3px solid #ccc;
+            border-radius: 8px;
+            background: #000;
+            cursor: pointer;
+            position: relative;
+            transition: border-color .2s, box-shadow .2s;
+        }
+
+            .terminalBox[aria-selected="true"] {
+                border-color: #ff8a00;
+                animation: neon 1.5s ease-in-out infinite alternate;
+            }
+
+        @keyframes neon {
+            from {
+                box-shadow: 0 0 4px rgba(255,138,0,0.8);
+            }
+
+            to {
+                box-shadow: 0 0 12px rgba(255,138,0,0.8);
+            }
+        }
+
+        .terminalTitle {
+            background: #222;
+            color: #fff;
+            padding: 6px;
+            text-align: center;
+        }
+
+        .videoContainer {
+            position: relative;
+            flex: 1;
+            overflow: hidden;
+        }
+
+            .videoContainer video {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+
+        .spinner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 32px;
+            height: 32px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            transform: translate(-50%,-50%);
+            z-index: 2;
+        }
+
+        @keyframes spin {
+            to {
+                transform: translate(-50%,-50%) rotate(360deg);
+            }
+        }
+
+        .spinner.hide {
+            display: none;
+        }
+
+        .scanArea {
+            position: absolute;
+            top: 20%;
+            left: 20%;
+            width: 60%;
+            height: 60%;
+            border: 2px dashed red;
+            resize: both;
+            overflow: auto;
+            cursor: move;
+            z-index: 3;
+        }
+
+        .scanLine {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: rgba(255,0,0,0.7);
+            animation: scanAnim 2s linear infinite;
+        }
+
+        .videoContainer.scanning .scanLine {
+            display: block;
+        }
+
+        @keyframes scanAnim {
+            from {
+                top: 0
+            }
+
+            to {
+                top: calc(100% - 2px);
+            }
+        }
+
+        .feedback {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%,-50%) scale(0);
+            font-size: 4vw;
+            transition: transform .2s;
+            pointer-events: none;
+            z-index: 4;
+        }
+
+            .feedback.show {
+                transform: translate(-50%,-50%) scale(1);
+            }
+
+            .feedback.success {
+                color: #4caf50;
+            }
+
+            .feedback.error {
+                color: #f44336;
+            }
+
+        /* Manual input */
+        .manualContainer {
+            padding: 8px;
+            text-align: center;
+            background: #fff;
+            border-top: 1px solid #ddd;
+        }
+
+        #manualInput {
+            width: 200px;
+            padding: 6px;
+            margin-right: 6px;
+        }
+
+        /* Log */
+        #logContainer {
+            overflow-y: auto;
+            padding: 12px;
+            background: #fff;
+            border-top: 1px solid #ddd;
+        }
+
+        #exportBtn {
+            margin-bottom: 8px;
+            padding: 6px 12px;
+            cursor: pointer;
+        }
+
+        #logTable {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+            #logTable th, #logTable td {
+                border: 1px solid #ccc;
+                padding: 4px;
+                text-align: left;
+            }
+    </style>
 </head>
 <body>
 
-  <h1>
-    Bus Terminals Scanner
-    <button
-      id="configToggle"
-      aria-label="Settings"
-      title="Settings"
-      data-tooltip="Open Settings"
-    >⚙️</button>
+    <h1>
+        Bus Terminals Scanner
+        <button id="configToggle" data-tooltip="Settings">⚙️</button>
+        <div id="configPanel">
+            <label>
+                <input type="checkbox" id="voiceToggle" checked />
+                Voice Feedback
+            </label>
+            <label>
+                Cooldown (ms):
+                <input type="number" id="cooldown" value="1000" min="0" step="100" />
+            </label>
+            <label>
+                Profile:
+                <select id="profileSelect">
+                    <option value="QR_CODE">QR Code</option>
+                    <option value="EAN_13">EAN‑13</option>
+                    <option value="CODE_128">Code 128</option>
+                    <option value="DATA_MATRIX">Data Matrix</option>
+                </select>
+            </label>
+        </div>
+    </h1>
 
-    <div id="configPanel" role="dialog" aria-modal="true">
-      <label>
-        <input type="checkbox" id="voiceToggle" checked/>
-        Voice Feedback
-      </label>
-      <label>
-        Cooldown (ms):
-        <input type="number" id="cooldown" value="1000" min="0" step="100"/>
-      </label>
-      <label>
-        Profile:
-        <select id="profileSelect">
-          <option value="QR_CODE">QR Code</option>
-          <option value="EAN_13">EAN‑13</option>
-          <option value="CODE_128">Code 128</option>
-          <option value="DATA_MATRIX">Data Matrix</option>
-        </select>
-      </label>
-      <label style="margin-top:8px; color:gray">
-        Dashboard:
-        <input type="radio" name="dashboardToggle" id="dbShow" value="show" checked/> Show
-        <input type="radio" name="dashboardToggle" id="dbHide" value="hide"/> Hide
-      </label>
+    <!-- Four-camera grid -->
+    <div class="grid" role="group" aria-label="Terminals">
+        <div class="terminalBox" data-index="0" aria-selected="false" tabindex="0">
+            <div class="terminalTitle">BUS-TERMINAL-AAA</div>
+            <div class="videoContainer">
+                <div class="spinner"></div>
+                <div class="scanLine"></div>
+                <div class="scanArea" draggable="true"></div>
+                <video id="video0" autoplay playsinline muted></video>
+                <div class="feedback" id="fb0"></div>
+            </div>
+        </div>
+        <div class="terminalBox" data-index="1" aria-selected="false" tabindex="0">
+            <div class="terminalTitle">BUS-TERMINAL-BBB</div>
+            <div class="videoContainer">
+                <div class="spinner"></div>
+                <div class="scanLine"></div>
+                <div class="scanArea" draggable="true"></div>
+                <video id="video1" autoplay playsinline muted></video>
+                <div class="feedback" id="fb1"></div>
+            </div>
+        </div>
+        <div class="terminalBox" data-index="2" aria-selected="false" tabindex="0">
+            <div class="terminalTitle">BUS-TERMINAL-CCC</div>
+            <div class="videoContainer">
+                <div class="spinner"></div>
+                <div class="scanLine"></div>
+                <div class="scanArea" draggable="true"></div>
+                <video id="video2" autoplay playsinline muted></video>
+                <div class="feedback" id="fb2"></div>
+            </div>
+        </div>
+        <div class="terminalBox" data-index="3" aria-selected="false" tabindex="0">
+            <div class="terminalTitle">BUS-TERMINAL-DDD</div>
+            <div class="videoContainer">
+                <div class="spinner"></div>
+                <div class="scanLine"></div>
+                <div class="scanArea" draggable="true"></div>
+                <video id="video3" autoplay playsinline muted></video>
+                <div class="feedback" id="fb3"></div>
+            </div>
+        </div>
     </div>
-  </h1>
 
-  <!-- Camera Grid (40vh) -->
-  <div class="grid" role="group" aria-label="Terminals">
-    <!-- Terminal 0 -->
-    <div class="terminalBox" data-index="0"
-         role="region" aria-labelledby="t0_label" aria-selected="false"
-         tabindex="0">
-      <div class="terminalTitle" id="t0_label">BUS-TERMINAL-AAA</div>
-      <div class="videoContainer">
-        <div class="spinner"></div>
-        <div class="scanLine"></div>
-        <div class="scanArea" draggable="true"></div>
-        <video id="video0" autoplay playsinline muted></video>
-        <div class="feedback" id="fb0"></div>
-      </div>
+    <!-- Manual input -->
+    <div class="manualContainer">
+        <input id="manualInput" placeholder="Enter/Paste QR…" />
+        <button id="manualBtn">Submit</button>
     </div>
-    <!-- Terminal 1 -->
-    <div class="terminalBox" data-index="1"
-         role="region" aria-labelledby="t1_label" aria-selected="false"
-         tabindex="0">
-      <div class="terminalTitle" id="t1_label">BUS-TERMINAL-BBB</div>
-      <div class="videoContainer">
-        <div class="spinner"></div>
-        <div class="scanLine"></div>
-        <div class="scanArea" draggable="true"></div>
-        <video id="video1" autoplay playsinline muted></video>
-        <div class="feedback" id="fb1"></div>
-      </div>
+
+    <!-- Log -->
+    <div id="logContainer">
+        <button id="exportBtn">Export Log CSV</button>
+        <table id="logTable">
+            <thead>
+                <tr><th>Time</th><th>Terminal</th><th>Code</th><th>Result</th></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
     </div>
-    <!-- Terminal 2 -->
-    <div class="terminalBox" data-index="2"
-         role="region" aria-labelledby="t2_label" aria-selected="false"
-         tabindex="0">
-      <div class="terminalTitle" id="t2_label">BUS-TERMINAL-CCC</div>
-      <div class="videoContainer">
-        <div class="spinner"></div>
-        <div class="scanLine"></div>
-        <div class="scanArea" draggable="true"></div>
-        <video id="video2" autoplay playsinline muted></video>
-        <div class="feedback" id="fb2"></div>
-      </div>
-    </div>
-    <!-- Terminal 3 -->
-    <div class="terminalBox" data-index="3"
-         role="region" aria-labelledby="t3_label" aria-selected="false"
-         tabindex="0">
-      <div class="terminalTitle" id="t3_label">BUS-TERMINAL-DDD</div>
-      <div class="videoContainer">
-        <div class="spinner"></div>
-        <div class="scanLine"></div>
-        <div class="scanArea" draggable="true"></div>
-        <video id="video3" autoplay playsinline muted></video>
-        <div class="feedback" id="fb3"></div>
-      </div>
-    </div>
-  </div>
 
-  <!-- Manual Input -->
-  <div class="manualContainer">
-    <input id="manualInput" placeholder="Enter/Paste QR…"/>
-    <button id="manualBtn">Submit</button>
-  </div>
+    <script src="https://unpkg.com/@zxing/library@latest"></script>
+    <script>
+        (async () => {
+            const titles = ['BUS-TERMINAL-AAA', 'BUS-TERMINAL-BBB', 'BUS-TERMINAL-CCC', 'BUS-TERMINAL-DDD'];
+            const boxes = Array.from(document.querySelectorAll('.terminalBox'));
+            let selected = null, scanning = false,
+                voiceOn = true, cooldown = 1000, specFormat = 'QR_CODE',
+                femaleVoice = null, log = [];
 
-  <!-- Log -->
-  <div id="logContainer">
-    <button id="exportBtn">Export Log CSV</button>
-    <table id="logTable">
-      <thead>
-        <tr><th>Time</th><th>Terminal</th><th>Code</th><th>Result</th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
+            // settings panel
+            document.getElementById('configToggle').onclick = () => {
+                const p = document.getElementById('configPanel');
+                p.style.display = p.style.display === 'block' ? 'none' : 'block';
+            };
+            document.getElementById('voiceToggle').onchange = e => voiceOn = e.target.checked;
+            document.getElementById('cooldown').oninput = e => cooldown = +e.target.value || 0;
+            document.getElementById('profileSelect').onchange = e => specFormat = e.target.value;
 
-  <!-- Dashboard -->
-  <div id="dashboard">
-    <button id="exportPDF">Export Dashboard PDF</button>
-    <div id="charts">
-      <div class="chart" id="chart1"><h4>Scans per Terminal</h4></div>
-      <div class="chart" id="chart2"><h4>Success vs Failure</h4></div>
-    </div>
-  </div>
+            // ARIA live region
+            const ariaLive = document.createElement('div');
+            ariaLive.setAttribute('aria-live', 'assertive');
+            ariaLive.style.position = 'absolute'; ariaLive.style.left = '-9999px';
+            document.body.append(ariaLive);
+            function ariaAnnounce(msg) { ariaLive.textContent = msg; }
 
-  <script src="https://unpkg.com/@zxing/library@latest"></script>
-  <script>
-  (async()=>{
-    const titles = [
-      'BUS-TERMINAL-AAA','BUS-TERMINAL-BBB',
-      'BUS-TERMINAL-CCC','BUS-TERMINAL-DDD'
-    ];
-    const boxes = Array.from(document.querySelectorAll('.terminalBox'));
-    let selected=null, scanning=false,
-        voiceOn=true, cooldown=1000, specFormat='QR_CODE',
-        femaleVoice=null, log=[];
+            // select terminal
+            boxes.forEach(b => {
+                b.addEventListener('click', selectTerminal);
+                b.addEventListener('keydown', e => { if (e.key === 'Enter') selectTerminal.call(b); });
+            });
+            function selectTerminal() {
+                boxes.forEach(x => {
+                    x.setAttribute('aria-selected', 'false');
+                    x.querySelector('.feedback').className = 'feedback';
+                    x.querySelector('.videoContainer').classList.remove('scanning');
+                });
+                selected = +this.dataset.index;
+                this.setAttribute('aria-selected', 'true');
+                this.querySelector('.videoContainer').classList.add('scanning');
+                scanning = false;
+                ariaAnnounce(`${titles[selected]} selected.`);
+            }
 
-    // Toggle settings panel
-    document.getElementById('configToggle').onclick = ()=>{
-      const p = document.getElementById('configPanel');
-      p.style.display = p.style.display==='block' ? 'none' : 'block';
-    };
-    document.getElementById('voiceToggle').onchange = e=> voiceOn = e.target.checked;
-    document.getElementById('cooldown').oninput  = e=> cooldown = +e.target.value || 0;
-    document.getElementById('profileSelect').onchange = e=> specFormat = e.target.value;
+            // pick female voice
+            speechSynthesis.onvoiceschanged = () => {
+                const vs = speechSynthesis.getVoices();
+                femaleVoice = vs.find(v => /female|zira|samantha|victoria/i.test(v.name))
+                    || vs.find(v => v.lang.startsWith('en')) || vs[0];
+            };
+            function speak(text) {
+                if (!voiceOn) return;
+                speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance(text);
+                if (femaleVoice) u.voice = femaleVoice;
+                speechSynthesis.speak(u);
+            }
 
-    // Show/hide dashboard
-    document.querySelectorAll('input[name="dashboardToggle"]').forEach(radio=>{
-      radio.addEventListener('change', e=>{
-        document.getElementById('dashboard').style.display =
-          e.target.value === 'show' ? '' : 'none';
-      });
-    });
+            // start camera
+            await navigator.mediaDevices.getUserMedia({ video: true }).catch(() => null);
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            boxes.forEach((b, i) => {
+                const vid = b.querySelector('video');
+                vid.srcObject = stream;
+                vid.onloadeddata = () => b.querySelector('.spinner').classList.add('hide');
+            });
 
-    // ARIA live region
-    const ariaLive = document.createElement('div');
-    ariaLive.setAttribute('aria-live','assertive');
-    ariaLive.style.position='absolute'; ariaLive.style.left='-9999px';
-    document.body.append(ariaLive);
-    function ariaAnnounce(msg){ ariaLive.textContent = msg; }
+            // QR reader
+            const reader = new ZXing.BrowserMultiFormatReader();
+            reader.decodeFromVideoDevice(null, 'video0', (res, err) => {
+                if (res && selected !== null && !scanning) {
+                    scanning = true;
+                    handleScan(res.text.trim().toUpperCase());
+                }
+            });
 
-    // Terminal select (click/Enter)
-    boxes.forEach(b=>{
-      b.addEventListener('click', selectTerminal);
-      b.addEventListener('keydown', e=>{ if(e.key==='Enter') selectTerminal.call(b); });
-    });
-    function selectTerminal(){
-      boxes.forEach(x=>{
-        x.setAttribute('aria-selected','false');
-        x.querySelector('.feedback').className='feedback';
-        x.querySelector('.videoContainer').classList.remove('scanning');
-      });
-      selected = +this.dataset.index;
-      this.setAttribute('aria-selected','true');
-      this.querySelector('.videoContainer').classList.add('scanning');
-      scanning = false;
-      ariaAnnounce(`${titles[selected]} selected.`);
-    }
+            // manual override
+            document.getElementById('manualBtn').onclick = () => {
+                const code = document.getElementById('manualInput').value.trim().toUpperCase();
+                if (code && selected !== null) handleScan(code);
+            };
 
-    // Voice setup
-    speechSynthesis.onvoiceschanged = ()=>{
-      const vs = speechSynthesis.getVoices();
-      femaleVoice = vs.find(v=>/female|zira|samantha|victoria/i.test(v.name))
-                 || vs.find(v=>v.lang.startsWith('en')) || vs[0];
-    };
-    function speak(txt){
-      if(!voiceOn) return;
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(txt);
-      if(femaleVoice) u.voice = femaleVoice;
-      speechSynthesis.speak(u);
-    }
+            // logging
+            function addLog(idx, code, ok) {
+                log.push([new Date().toLocaleTimeString(), titles[idx], code, ok ? '✔️' : '❌']);
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${log.at(-1)[0]}</td>
+                          <td>${titles[idx]}</td>
+                          <td>${code}</td>
+                          <td>${ok ? '✔️' : '❌'}</td>`;
+                document.querySelector('#logTable tbody').append(tr);
+            }
+            document.getElementById('exportBtn').onclick = () => {
+                const csv = [['Time', 'Terminal', 'Code', 'Result'], ...log]
+                    .map(r => r.map(c => `"${c}"`).join(',')).join('\r\n');
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'scan_log.csv'; a.click();
+            };
 
-    // Start camera
-    await navigator.mediaDevices.getUserMedia({video:true}).catch(()=>null);
-    const stream = await navigator.mediaDevices.getUserMedia({video:true});
-    boxes.forEach((b,i)=>{
-      const vid = b.querySelector('video');
-      vid.srcObject = stream;
-      vid.onloadeddata = ()=> b.querySelector('.spinner').classList.add('hide');
-    });
-
-    // QR reader
-    const reader = new ZXing.BrowserMultiFormatReader();
-    reader.decodeFromVideoDevice(null,'video0',(res,err)=>{
-      if(res && selected!==null && !scanning){
-        scanning=true;
-        handleScan(res.text.trim().toUpperCase());
-      }
-    });
-
-    // Manual override
-    document.getElementById('manualBtn').onclick = ()=>{
-      const code = document.getElementById('manualInput').value.trim().toUpperCase();
-      if(code && selected!==null) handleScan(code);
-    };
-
-    // Logging
-    function addLog(idx, code, ok){
-      log.push([new Date().toLocaleTimeString(), titles[idx], code, ok?'✔️':'❌']);
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${log.at(-1)[0]}</td>
-                      <td>${titles[idx]}</td>
-                      <td>${code}</td>
-                      <td>${ok?'✔️':'❌'}</td>`;
-      document.querySelector('#logTable tbody').append(tr);
-    }
-    document.getElementById('exportBtn').onclick = ()=>{
-      const csv = [['Time','Terminal','Code','Result'],...log]
-        .map(r=>r.map(c=>`"${c}"`).join(',')).join('\r\n');
-      const blob = new Blob([csv],{type:'text/csv'});
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download='scan_log.csv'; a.click();
-    };
-
-    // Draw charts
-    function drawCharts(){
-      const counts = titles.map(t=>log.filter(r=>r[1]===t).length);
-      const svg1 = d3.select('#chart1').html('').append('svg')
-                     .attr('height',200).attr('width','100%');
-      const w = parseInt(svg1.style('width')), h=200, m=30;
-      const x = d3.scaleBand().domain(titles).range([m,w-m]).padding(0.3);
-      const y = d3.scaleLinear().domain([0,d3.max(counts)]).nice().range([h-m,m]);
-
-      svg1.selectAll('rect').data(counts).join('rect')
-        .attr('x',(_,i)=>x(titles[i]))
-        .attr('y',d=>y(d))
-        .attr('width',x.bandwidth())
-        .attr('height',d=>h-m-y(d))
-        .attr('fill','#69b3a2');
-      svg1.append('g').attr('transform',`translate(0,${h-m})`)
-          .call(d3.axisBottom(x)).selectAll('text').attr('font-size',10);
-      svg1.append('g').attr('transform',`translate(${m},0)`)
-          .call(d3.axisLeft(y)).selectAll('text').attr('font-size',10);
-
-      const sf = [
-        {label:'Success',count:log.filter(r=>r[3]==='✔️').length},
-        {label:'Failure',count:log.filter(r=>r[3]==='❌').length}
-      ];
-      const svg2 = d3.select('#chart2').html('').append('svg')
-                     .attr('height',200).attr('width','100%');
-      const pie = d3.pie().value(d=>d.count)(sf);
-      const arc = d3.arc().innerRadius(0).outerRadius(Math.min(w,h)/3);
-      const g = svg2.append('g').attr('transform',`translate(${w/2},${h/2})`);
-      const color = d3.scaleOrdinal().domain(sf.map(d=>d.label))
-                     .range(['#4caf50','#f44336']);
-      g.selectAll('path').data(pie).join('path')
-        .attr('d',arc).attr('fill',d=>color(d.data.label));
-      g.selectAll('text').data(pie).join('text')
-        .attr('transform',d=>`translate(${arc.centroid(d)})`)
-        .attr('text-anchor','middle').attr('font-size',12)
-        .text(d=>d.data.label);
-    }
-    document.getElementById('exportPDF').onclick = ()=>{
-      html2pdf().from(document.getElementById('dashboard')).save();
-    };
-
-    // Scan handling
-    function handleScan(code) {
-      const fb = document.getElementById('fb' + selected);
-      fb.className = 'feedback';
-
-      const fullExpected   = titles[selected];
-      const suffixExpected = fullExpected.split('-').pop();
-
-      const ok = (
-        code === fullExpected ||
-        code === suffixExpected ||
-        code.endsWith(suffixExpected)
-      );
-
-      fb.textContent = ok ? '✓' : '✕';
-      fb.classList.add(ok ? 'success' : 'error', 'show');
-      if (voiceOn) speak(ok ? 'Welcome' : 'Denied');
-      addLog(selected, code, ok);
-      ariaAnnounce(`Scan ${ok ? 'successful' : 'denied'} for ${fullExpected}.`);
-
-      setTimeout(() => {
-        fb.className = 'feedback';
-        boxes[selected].setAttribute('aria-selected','false');
-        boxes[selected].querySelector('.videoContainer')
-                         .classList.remove('scanning');
-        selected = null; scanning = false;
-        drawCharts();
-      }, cooldown);
-    }
-
-    // Initial render
-    drawCharts();
-  })();
-  </script>
+            // handle scan
+            function handleScan(code) {
+                const fb = document.getElementById('fb' + selected);
+                fb.className = 'feedback';
+                const full = titles[selected], suf = full.split('-').pop();
+                const ok = code === full || code === suf || code.endsWith(suf);
+                fb.textContent = ok ? '✓' : '✕';
+                fb.classList.add(ok ? 'success' : 'error', 'show');
+                speak(ok ? 'Welcome' : 'Denied');
+                addLog(selected, code, ok);
+                ariaAnnounce(`Scan ${ok ? 'successful' : 'denied'} for ${full}.`);
+                setTimeout(() => {
+                    fb.className = 'feedback';
+                    boxes[selected].setAttribute('aria-selected', 'false');
+                    boxes[selected].querySelector('.videoContainer').classList.remove('scanning');
+                    selected = null; scanning = false;
+                }, cooldown);
+            }
+        })();
+    </script>
 </body>
 </html>
