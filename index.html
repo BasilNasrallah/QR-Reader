@@ -17,6 +17,7 @@
             40vh /* camera grid */
             auto /* manual bar */
             1fr /* log */
+            auto /* footer */
             ;
             overflow: hidden;
             font-family: sans-serif;
@@ -24,7 +25,6 @@
             color: #333;
         }
 
-        /* Header */
         h1 {
             margin: 0;
             padding: 12px;
@@ -65,7 +65,6 @@
                 opacity: 1;
             }
 
-        /* Settings panel */
         #configPanel {
             display: none;
             position: absolute;
@@ -85,7 +84,6 @@
                 margin-bottom: 8px;
             }
 
-        /* Camera grid */
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px,1fr));
@@ -225,7 +223,6 @@
                 color: #f44336;
             }
 
-        /* Manual input */
         .manualContainer {
             padding: 8px;
             text-align: center;
@@ -239,7 +236,6 @@
             margin-right: 6px;
         }
 
-        /* Log */
         #logContainer {
             overflow-y: auto;
             padding: 12px;
@@ -263,8 +259,27 @@
                 padding: 4px;
                 text-align: left;
             }
+
+        /* Footer */
+        footer {
+            background: #333;
+            color: #fff;
+            text-align: center;
+            padding: 8px;
+            font-size: 0.9rem;
+        }
+
+            footer a {
+                color: #4caf50;
+                text-decoration: none;
+            }
+
+                footer a:hover {
+                    text-decoration: underline;
+                }
     </style>
 </head>
+
 <body>
 
     <h1>
@@ -291,8 +306,8 @@
         </div>
     </h1>
 
-    <!-- Four-camera grid -->
     <div class="grid" role="group" aria-label="Terminals">
+        <!-- repeat for each of the 4 terminals -->
         <div class="terminalBox" data-index="0" aria-selected="false" tabindex="0">
             <div class="terminalTitle">BUS-TERMINAL-AAA</div>
             <div class="videoContainer">
@@ -335,13 +350,11 @@
         </div>
     </div>
 
-    <!-- Manual input -->
     <div class="manualContainer">
         <input id="manualInput" placeholder="Enter/Paste QR…" />
         <button id="manualBtn">Submit</button>
     </div>
 
-    <!-- Log -->
     <div id="logContainer">
         <button id="exportBtn">Export Log CSV</button>
         <table id="logTable">
@@ -352,19 +365,27 @@
         </table>
     </div>
 
+    <footer>
+        © <span id="year"></span>
+        <a href="https://www.linkedin.com/in/basil-nasrallah/" target="_blank">Basil Nasrallah</a>. All rights reserved.
+    </footer>
+
     <script src="https://unpkg.com/@zxing/library@latest"></script>
     <script>
         (async () => {
+            // current year
+            document.getElementById('year').textContent = new Date().getFullYear();
+
             const titles = ['BUS-TERMINAL-AAA', 'BUS-TERMINAL-BBB', 'BUS-TERMINAL-CCC', 'BUS-TERMINAL-DDD'];
             const boxes = Array.from(document.querySelectorAll('.terminalBox'));
             let selected = null, scanning = false,
                 voiceOn = true, cooldown = 1000, specFormat = 'QR_CODE',
                 femaleVoice = null, log = [];
 
-            // settings panel
+            // Settings panel
             document.getElementById('configToggle').onclick = () => {
-                const p = document.getElementById('configPanel');
-                p.style.display = p.style.display === 'block' ? 'none' : 'block';
+                const panel = document.getElementById('configPanel');
+                panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
             };
             document.getElementById('voiceToggle').onchange = e => voiceOn = e.target.checked;
             document.getElementById('cooldown').oninput = e => cooldown = +e.target.value || 0;
@@ -377,7 +398,7 @@
             document.body.append(ariaLive);
             function ariaAnnounce(msg) { ariaLive.textContent = msg; }
 
-            // select terminal
+            // Terminal selection
             boxes.forEach(b => {
                 b.addEventListener('click', selectTerminal);
                 b.addEventListener('keydown', e => { if (e.key === 'Enter') selectTerminal.call(b); });
@@ -395,21 +416,21 @@
                 ariaAnnounce(`${titles[selected]} selected.`);
             }
 
-            // pick female voice
+            // Text‑to‑speech
             speechSynthesis.onvoiceschanged = () => {
                 const vs = speechSynthesis.getVoices();
                 femaleVoice = vs.find(v => /female|zira|samantha|victoria/i.test(v.name))
                     || vs.find(v => v.lang.startsWith('en')) || vs[0];
             };
-            function speak(text) {
+            function speak(txt) {
                 if (!voiceOn) return;
                 speechSynthesis.cancel();
-                const u = new SpeechSynthesisUtterance(text);
+                const u = new SpeechSynthesisUtterance(txt);
                 if (femaleVoice) u.voice = femaleVoice;
                 speechSynthesis.speak(u);
             }
 
-            // start camera
+            // Camera setup
             await navigator.mediaDevices.getUserMedia({ video: true }).catch(() => null);
             const stream = await navigator.mediaDevices.getUserMedia({ video: true });
             boxes.forEach((b, i) => {
@@ -418,7 +439,7 @@
                 vid.onloadeddata = () => b.querySelector('.spinner').classList.add('hide');
             });
 
-            // QR reader
+            // QR scanning
             const reader = new ZXing.BrowserMultiFormatReader();
             reader.decodeFromVideoDevice(null, 'video0', (res, err) => {
                 if (res && selected !== null && !scanning) {
@@ -427,20 +448,21 @@
                 }
             });
 
-            // manual override
+            // Manual submit
             document.getElementById('manualBtn').onclick = () => {
                 const code = document.getElementById('manualInput').value.trim().toUpperCase();
                 if (code && selected !== null) handleScan(code);
             };
 
-            // logging
+            // Logging
             function addLog(idx, code, ok) {
                 log.push([new Date().toLocaleTimeString(), titles[idx], code, ok ? '✔️' : '❌']);
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td>${log.at(-1)[0]}</td>
-                          <td>${titles[idx]}</td>
-                          <td>${code}</td>
-                          <td>${ok ? '✔️' : '❌'}</td>`;
+                tr.innerHTML = `
+            <td>${log.at(-1)[0]}</td>
+            <td>${titles[idx]}</td>
+            <td>${code}</td>
+            <td>${ok ? '✔️' : '❌'}</td>`;
                 document.querySelector('#logTable tbody').append(tr);
             }
             document.getElementById('exportBtn').onclick = () => {
@@ -452,7 +474,7 @@
                 a.download = 'scan_log.csv'; a.click();
             };
 
-            // handle scan
+            // Scan handler
             function handleScan(code) {
                 const fb = document.getElementById('fb' + selected);
                 fb.className = 'feedback';
